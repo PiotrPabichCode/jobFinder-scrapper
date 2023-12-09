@@ -4,10 +4,15 @@ from datetime import datetime, timedelta
 from ..items import NofluffjobsItem
 
 
+# Usage: scrapy crawl nofluffjobs_spider -0 filename.json
+# Change MAX_PAGES for maximum scrapped pages
+
 class NofluffjobsSpiderSpider(scrapy.Spider):
     name = "nofluffjobs_spider"
     allowed_domains = ["nofluffjobs.com"]
-    start_urls = ["https://nofluffjobs.com/?page=1"]
+    base_url = "https://nofluffjobs.com/?page="
+    sort_criteria = "criteria=salary%3Cpln500000m&sort=newest"
+    start_urls = [f"{base_url}1&{sort_criteria}"]
 
     def parse(self, response):
         lists = response.xpath('//*[@data-cy="nfjPostingsList"]')
@@ -15,14 +20,17 @@ class NofluffjobsSpiderSpider(scrapy.Spider):
         for list in lists:
             for link in list.css('a::attr(href)').getall():
                 if '/job' in link:
-                    next_page = "https://nofluffjobs.com/" + link
+                    next_page = "https://nofluffjobs.com" + link
                     yield response.follow(next_page, callback=self.parse_details)
 
-        current_page = int(response.url.split('=')[-1])
+        current_page = int(response.url.split('=')[1].split('&')[0])
 
-        if current_page < 20:
+        MAX_PAGES = 50
+
+        print('currentPage', current_page)
+        if current_page < MAX_PAGES:
             # Build URL for the next page
-            next_page_url = f"https://nofluffjobs.com/?page={current_page + 1}"
+            next_page_url = f"{self.base_url}{current_page + 1}&{self.sort_criteria}"
 
             # Make a request to the next page
             yield response.follow(next_page_url, callback=self.parse)
